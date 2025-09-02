@@ -8,8 +8,17 @@ This project investigates how Large Language Models (LLMs) can directly orchestr
 pip install -r requirements.txt
 ```
 
+## Environment Variables Overview
+
+| Key               | Default |
+|-------------------|---------|
+| MODEL_URL         | -       |
+| MODEL_NAME        | -       |
+| MODEL_TEMPERATURE | 0.0     |
+
 ## Run
 
 ``` shell
 python3 src/main.py
 ```
+

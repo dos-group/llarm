@@ -234,11 +234,14 @@ Functions:
         print(content)
 
         output = ""
-        model = 'gpt'
 
-        if model == 'gpt5':
+        model_name = environ.get("MODEL_NAME", '')
+        model_url = environ.get("MODEL_URL", '')
+        model_temperature = environ.get("MODEL_TEMPERATURE", 0.0)
+
+        if 'gpt' in model_name:
             completions = client.chat.completions.create(
-                model="gpt-5",
+                model=model_name,
                 messages=[
                     {"role": "system", "content": "You are a Python 3 code generator."},
                     {
@@ -250,31 +253,13 @@ Functions:
             )
 
             output = completions.choices[0].message.content.strip("\n\r ")
-
-        if model == 'gpt':
-            completions = client.chat.completions.create(
-                model="gpt-4.1",
-                messages=[
-                    {"role": "system", "content": "You are a Python 3 code generator."},
-                    {
-                        "role": "user",
-                        "content": content,
-                    }
-                ],
-                temperature=0,
-            )
-
-            output = completions.choices[0].message.content.strip("\n\r ")
-
-        if model == 'falcon7b':
-            url = "http:///qwen-2dot5-14b-instruct/v1/chat/completions"
-
+        else:
             headers = {
                 "Content-Type": "application/json",
             }
 
             payload = {
-                "model": "falcon-h1-7b-instruct",
+                "model": model_name,
                 "messages": [
                     {"role": "system", "content": "You are a Python 3 code generator."},
                     {
@@ -282,76 +267,10 @@ Functions:
                         "content": content,
                     }
                 ],
-                "temperature": 0,
+                "temperature": model_temperature,
             }
 
-            response = requests.post(url, headers=headers, json=payload)
-            output = response.json()["choices"][0]["message"]["content"].strip("\n\r ")
-
-        if model == 'falcon34b':
-            url = "http:///qwen-2dot5-14b-instruct/v1/chat/completions"
-
-            headers = {
-                "Content-Type": "application/json",
-            }
-
-            payload = {
-                "model": "falcon-h1-34b-instruct",
-                "messages": [
-                    {"role": "system", "content": "You are a Python 3 code generator."},
-                    {
-                        "role": "user",
-                        "content": content,
-                    }
-                ],
-                "temperature": 0,
-            }
-
-            response = requests.post(url, headers=headers, json=payload)
-            output = response.json()["choices"][0]["message"]["content"].strip("\n\r ")
-
-        if model == 'phi':
-            url = "http:///qwen-2dot5-14b-instruct/v1/chat/completions"
-
-            headers = {
-                "Content-Type": "application/json",
-            }
-
-            payload = {
-                "model": "phi-4",
-                "messages": [
-                    {"role": "system", "content": "You are a Python 3 code generator."},
-                    {
-                        "role": "user",
-                        "content": content,
-                    }
-                ],
-                "temperature": 0,
-            }
-
-            response = requests.post(url, headers=headers, json=payload)
-            output = response.json()["choices"][0]["message"]["content"].strip("\n\r ")
-
-        if model == 'qwen':
-            url = "http:///qwen-2dot5-14b-instruct/v1/chat/completions"
-
-            headers = {
-                "Content-Type": "application/json",
-            }
-
-            payload = {
-                "model": "qwen-2dot5-14b-instruct",
-                "messages": [
-                    {"role": "system", "content": "You are a Python 3 code generator."},
-                    {
-                        "role": "user",
-                        "content": content,
-                    }
-                ],
-                "temperature": 0,
-            }
-
-            response = requests.post(url, headers=headers, json=payload)
+            response = requests.post(model_url, headers=headers, json=payload)
             output = response.json()["choices"][0]["message"]["content"].strip("\n\r ")
 
         marker = "```"
