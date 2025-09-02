@@ -10,15 +10,28 @@ pip install -r requirements.txt
 
 ## Environment Variables Overview
 
-| Key               | Default |
-|-------------------|---------|
-| MODEL_URL         | -       |
-| MODEL_NAME        | -       |
-| MODEL_TEMPERATURE | 0.0     |
+| Key               | Description                               | Default |
+|-------------------|-------------------------------------------|---------|
+| MODEL_NAME        | LLM model name                            | None    |
+| MODEL_TEMPERATURE | LLM model temperature                     | 0.0     |
+| MODEL_URL         | URL to the chat completions endpoint      | None    |
+| MODEL_KEY         | API key for the chat completions endpoint | None    |
 
-## Run
+## Freestanding Environment
+
+The freestanding environment is used to experiment with with different LLMs and tasks. Intentions can be typed directly into the console. Furthermore, the commands listed below can be executed for resetting, exitting or debugging the environment.
+
+### Run
 
 ``` shell
-python3 src/main.py
+python3 -m src/main.py
 ```
+
+### Commands
+
+| Name  | Action                                                         |
+|-------|----------------------------------------------------------------|
+| reset | Resets the environment, including gripper and object positions |
+| exit  | Exit the application                                           |
+| break | Breakpoint call to the python debugger                         |
 
