@@ -1,6 +1,8 @@
 from pybullet import (
     disconnect,
+    getAABB,
     POSITION_CONTROL,
+    VELOCITY_CONTROL,
     setJointMotorControl2,
     getLinkState,
     changeConstraint,
@@ -11,6 +13,7 @@ from pybullet import (
     createConstraint,
     resetBasePositionAndOrientation,
     loadSDF,
+    invertTransform,
     loadURDF,
     connect,
     GUI,
@@ -25,18 +28,22 @@ from pybullet import (
     getBasePositionAndOrientation,
     getQuaternionFromEuler,
     configureDebugVisualizer,
+    getMatrixFromQuaternion,
     COV_ENABLE_SINGLE_STEP_RENDERING,
     getJointState,
+    addUserDebugLine,
+    addUserDebugText,
 )
 from math import pi
-from utility import (
+from ..utility import (
     every_distance_is_within_tolerance,
+    distances_are_between,
     get_joint_positions,
     State,
     MotionPlanner,
     floatify,
 )
-from numpy import array, linspace, sqrt
+from numpy import array, linspace, sqrt, linalg
 from scipy.interpolate import CubicSpline
 
 def interpolate_linear(start, end, steps):
@@ -81,6 +88,15 @@ def camera_to_world(point_cam, cam_to_world):
     # Ergebnis (x, y, z)
     return point_world_h[:3]
 
+def quat_mul(q1, q2):
+    # (x,y,z,w) Konvention wie in PyBullet
+    x1,y1,z1,w1 = q1; x2,y2,z2,w2 = q2
+    return (
+        w1*x2 + x1*w2 + y1*z2 - z1*y2,
+        w1*y2 - x1*z2 + y1*w2 + z1*x2,
+        w1*z2 + x1*y2 - y1*x2 + z1*w2,
+        w1*w2 - x1*x2 - y1*y2 - z1*z2
+    )
 
 class ArmController:
     STATE_IDLE = "idle"
@@ -136,6 +152,8 @@ class ArmController:
 
     END_EFFECTOR_INDEX = 6
 
+    FRAME_POSITION = [0, 0, -0.025]
+
     def __init__(self):
         self.__platform_id = loadURDF(
             "kuka_iiwa/model_vr_limits.urdf",
@@ -153,14 +171,16 @@ class ArmController:
         self.__state = State(ArmController.STATE_IDLE)
 
         createConstraint(
-            self.__platform_id,
-            6,
-            self.__gripper_id,
-            0,
-            JOINT_FIXED,
-            [0, 0, 0],
-            [0, 0, 0.05],
-            [0, 0, 0],
+            parentBodyUniqueId=self.__platform_id,
+            parentLinkIndex=6,
+            childBodyUniqueId=self.__gripper_id,
+            childLinkIndex=0,
+            jointType=JOINT_FIXED,
+            jointAxis=[0, 0, 0],
+            parentFramePosition=[0, 0, 0],
+            childFramePosition=ArmController.FRAME_POSITION,
+            parentFrameOrientation=[0, 0, 0, 1],
+            childFrameOrientation=getQuaternionFromEuler([0, 0, pi]),
         )
         constraint_id = createConstraint(
             self.__gripper_id,
@@ -175,6 +195,8 @@ class ArmController:
         changeConstraint(
             constraint_id, gearRatio=-1, erp=0.5, relativePositionTarget=0, maxForce=100
         )
+
+        self.reset()
 
     @property
     def state(self):
@@ -245,8 +267,8 @@ class ArmController:
 
         import cv2
 
-        rgb_array = np.reshape(img_arr[2], (height, width, 4))  # 4 = RGBA
-        rgb_array = rgb_array[:, :, :3]  # Nur RGB (ohne Alpha)
+        rgb_array = np.reshape(img_arr[2], (height, width, 4))
+        rgb_array = rgb_array[:, :, :3]
         rgb_array = rgb_array.astype(np.uint8)
         rgb_array = cv2.cvtColor(rgb_array, cv2.COLOR_RGB2BGR)
 
@@ -301,7 +323,6 @@ class ArmController:
                 point_world = camera_to_world(point_cam, cam_to_world)
                 #print(f"{body_id} {point_world} real: {pos}")
 
-
         #cv2.imwrite("./depth.jpg", depth_uint8)
         #cv2.imwrite("./rgb.jpg", rgb_array)
 
@@ -329,7 +350,7 @@ class ArmController:
             execute_callbacks=execute_callbacks,
         )
 
-    def close_gripper(self, force=350, position=0.05):
+    def close_gripper(self, force=250, position=0.05):
         for index in [4, 6]:
             setJointMotorControl2(
                 bodyIndex=self.__gripper_id,
@@ -349,6 +370,23 @@ class ArmController:
             )
         )
 
+    def idle(self, execute_callbacks=True):
+        joint_positions = get_joint_positions(self.__platform_id)
+
+        for index in range(getNumJoints(self.__platform_id)):
+            setJointMotorControl2(
+                bodyUniqueId=self.__platform_id,
+                jointIndex=index,
+                controlMode=VELOCITY_CONTROL,
+                targetPosition=joint_positions[index],
+                maxVelocity=0,
+            )
+
+        return self.__transform_state(
+            State(ArmController.STATE_IDLE),
+            execute_callbacks=execute_callbacks,
+        )
+
     def open_gripper(self, force=250):
         for index in [4, 6]:
             setJointMotorControl2(
@@ -361,7 +399,15 @@ class ArmController:
 
         return self.__transform_state(State(ArmController.STATE_UNGRAB))
 
-    def move_gripper_to(self, position, velocity = 1.5, interpolation_type = None, interpolation_steps = None):
+    def move_gripper_to(
+            self,
+            position,
+            velocity = 1.5,
+            interpolation_type = None,
+            interpolation_steps = None,
+            ticking_handler=None,
+            ticking_divisor=None,
+    ):
         if interpolation_steps is None:
             interpolation_steps = 0
 
@@ -382,10 +428,14 @@ class ArmController:
                 ArmController.STATE_MOVE_TO_OBJECT,
                 {
                     "steps": [
-                        *steps,
+                        #*steps,
                         end,
                     ],
                     "velocity": velocity,
+                    "ticking_handler": ticking_handler,
+                    "ticking_divisor": ticking_divisor,
+                    "current_tick": 0,
+                    "position": position,
                 },
             )
         )
@@ -443,6 +493,8 @@ class ArmController:
 
         self.__transform_state(State(ArmController.STATE_IDLE))
 
+    TCP_OFFSET = [0.0, 0.0, 0.25]
+
     def __update_move_to_object_state(self, delta):
         if "current_step" not in self.__state.data or self.__state.data["current_step"] is None:
             self.__state.data["current_step"] = 0
@@ -450,18 +502,21 @@ class ArmController:
         if "joint_poses" not in self.__state.data or self.__state.data["joint_poses"] is None:
             orientation = getQuaternionFromEuler([0.0, 1.00 * pi, 0.0])
 
-            self.__state.data["joint_poses"] = calculateInverseKinematics(
-                self.__platform_id,
-                ArmController.END_EFFECTOR_INDEX,
-                multiplyTransforms(
-                    self.__state.data["steps"][self.__state.data["current_step"]],
-                    orientation,
-                    [0.0, 0.0, -0.33],
-                    [0.0, 0.0, 0.0, 1.0],
-                )[0],
-                targetOrientation=orientation,
+            position, _ = multiplyTransforms(
+                self.__state.data["steps"][self.__state.data["current_step"]],
+                orientation,
+                array(ArmController.FRAME_POSITION) + array([0, 0, -0.285]),
+                orientation,
             )
 
+            self.__state.data["joint_poses"] = calculateInverseKinematics(
+                self.__platform_id,
+                6,
+                position,
+                targetOrientation=getQuaternionFromEuler([0, pi, 0]),
+                maxNumIterations=100,
+                residualThreshold=1e-4,
+            )
             for index in range(getNumJoints(self.__platform_id)):
                 setJointMotorControl2(
                     self.__platform_id,
@@ -477,6 +532,8 @@ class ArmController:
             tolerance=1e-2,
         )
 
+        self.__handle_ticking()
+
         if not platform_condition:
             return
 
@@ -488,13 +545,29 @@ class ArmController:
 
         self.__transform_state(State(ArmController.STATE_IDLE))
 
+    def __handle_ticking(self):
+        if "current_tick" not in self.__state.data or self.__state.data["current_tick"] is None:
+            return
+
+        self.__state.data["current_tick"] += 1
+
+        if "ticking_handler" not in self.__state.data or self.__state.data["ticking_handler"] is None:
+            return
+
+        if "ticking_divisor" not in self.__state.data or self.__state.data["ticking_divisor"] is None:
+            return
+
+        if self.__state.data["current_tick"] % self.__state.data["ticking_divisor"] == 0:
+            self.__state.data["ticking_handler"]()
+
     def __transform_state(self, next_state, execute_callbacks=True):
         previous_state = self.__state
         self.__state = next_state
 
-        if execute_callbacks:
-            for callback in previous_state.then_callbacks:
-                callback(self)
+        if execute_callbacks and len(previous_state.then_callbacks) > 0:
+            (previous_state.then_callbacks.pop(0))(self)
+
+            self.__state.then_callbacks = previous_state.then_callbacks + self.__state.then_callbacks
 
         return next_state
 
@@ -514,6 +587,6 @@ class ArmController:
                 computeForwardKinematics=True,
             )[4],
             getQuaternionFromEuler([0.0, 0, 0.0]),
-            [0.0, 0.0, -0.33],
+            ArmController.TCP_OFFSET,
             [0.0, 0.0, 0.0, 1.0],
         )[0]

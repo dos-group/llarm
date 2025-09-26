@@ -1,6 +1,7 @@
 from pybullet import (
     getAABB,
     getBasePositionAndOrientation,
+    getEulerFromQuaternion,
 )
 
 class WorldObject:
@@ -31,8 +32,12 @@ class WorldObject:
         )
 
     @property
-    def orientation(self):
+    def quaternion_orientation(self):
         return getBasePositionAndOrientation(self.__id)[1]
+
+    @property
+    def euler_orientation(self):
+        return getEulerFromQuaternion(self.quaternion_orientation)
 
     @property
     def aabb(self):
