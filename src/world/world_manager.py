@@ -18,7 +18,6 @@ class WorldManager:
             )
         )
 
-
     def format_prompt_specification(self):
         prompt = "Available objects (name [tags] (dimension; center_position)):\n"
 

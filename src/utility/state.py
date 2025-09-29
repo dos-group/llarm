@@ -21,5 +21,9 @@ class State:
     def then_callbacks(self):
         return self.__then_callbacks
 
+    @then_callbacks.setter
+    def then_callbacks(self, then_callbacks):
+        self.__then_callbacks = then_callbacks
+
     def then(self, callback):
         self.__then_callbacks.append(callback)

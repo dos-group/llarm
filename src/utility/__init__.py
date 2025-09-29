@@ -7,6 +7,7 @@ from pybullet import (
 
 from .motion_planner import MotionPlanner
 from .state import State
+from .pybullet_context import PyBulletContext
 
 
 def distances_are_between(left, right):
@@ -14,7 +15,6 @@ def distances_are_between(left, right):
         lambda x: abs(x[0] - x[1]),
         zip(left, right),
     )
-
 
 def every_distance_is_within_tolerance(left, right, tolerance=1e-3):
     return all(map(lambda x: x <= tolerance, distances_are_between(left, right)))
@@ -35,6 +35,9 @@ def floatify(data):
             data,
         )
     )
+
+def point_in_aabb(point, aabb_min, aabb_max):
+    return all(aabb_min[i] <= point[i] <= aabb_max[i] for i in range(3))
 
 def draw_box(aabb):
     aabb_min, aabb_max = aabb
@@ -85,3 +88,9 @@ def draw_box(aabb):
 
 def draw_object_box(id):
     draw_box(getAABB(id))
+
+def any_lambda(callable):
+    def function(*args, **kwargs):
+        callable()
+
+    return function

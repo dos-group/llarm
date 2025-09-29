@@ -1,9 +1,7 @@
 from inspect import getfullargspec
 from typing import Collection,  get_origin, get_args
 
-####################################################################################################
-
-class FunctionSignatureFormatter:
+class WorkflowFunctionSignatureFormatter:
     def format_type(self, type):
         if type is None:
             return "void"
