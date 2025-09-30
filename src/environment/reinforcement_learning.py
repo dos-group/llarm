@@ -19,16 +19,15 @@ class LiftObjectRewarder:
             orientation_threshold=0.01,
     ):
         self.__object = object
-        self.__rewards = []
+        self.__reward = None
         self.__xy_delta_threshold = xy_delta_threshold
         self.__xy_delta_weight = xy_delta_weight
         self.__z_delta_weight = z_delta_weight
         self.__orientation_weight = orientation_weight
         self.__orientation_threshold = orientation_threshold
 
-    @property
-    def rewards(self):
-        return self.__rewards
+    def reward(self):
+        return self.__reward
 
     def register(self, workflow_manager):
         workflow_manager.event_listeners.before_execute.register(self.__before_execute)
@@ -49,12 +48,10 @@ class LiftObjectRewarder:
         )
         total_reward = position_delta_reward + orientation_delta_reward
 
-        self.__rewards.append(
-            {
-                position_delta_reward,
-                orientation_delta_reward,
-            }
-        )
+        self.__reward = {
+            position_delta_reward,
+            orientation_delta_reward,
+        }
 
     def __reward_position_delta(self, position_from, position_to):
         position_delta = array(position_from) - position_to
@@ -114,8 +111,24 @@ class AfterExecuteImageTracer:
         cv2.imwrite("screenshot.png", bgr)
         print("Bild gespeichert als screenshot.png")
 
-
 def calculate_reward(llm_completion, **kwargs):
+    object_color = kwargs["object_color"]
+
     with PyBulletContext(False):
         base = Base()
-        return rewarder.rewards
+        rewarder = LiftObjectRewarder(
+            base.world_manager.query_objects("cube", [object_color])[0],
+        )
+        done = False
+
+        def evaluate():
+            base.evaluate("Pick " + object_color)
+            done = True
+
+        thread = Thread(target=evaluate)
+        thread.start()
+
+        while done is False:
+            base.update()
+
+        return rewarder.reward

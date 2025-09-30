@@ -183,7 +183,6 @@ Functions:
             print(e)
             print_exc()
 
-
     def update(self):
         run(self.__workflow_manager.event_listeners.on_update.trigger())
 
