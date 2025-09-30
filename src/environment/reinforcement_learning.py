@@ -114,21 +114,9 @@ class AfterExecuteImageTracer:
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
         cv2.imwrite("screenshot.png", bgr)
         print("Bild gespeichert als screenshot.png")
-        
-with PyBulletContext(False):
-    base = Base()
-    rewarder = LiftObjectRewarder(base.world_manager.query_objects('cube', ['red'])[0])
-    rewarder.register(base.workflow_manager)
-    AfterExecuteImageTracer().register(base.workflow_manager)
 
-    for i in range(1):
-        thread = Thread(target=lambda: base.evaluate("Pick red"))
-        thread.start()
 
-        while thread.is_alive():
-            base.update()
-            #sleep(1.0 / time_step)
-
-        base.reset()
-
-    print(rewarder.rewards)
+def calculate_reward(llm_completion, kwargs**):
+    with PyBulletContext(False):
+        base = Base()
+        return rewarder.rewards)
