@@ -111,28 +111,30 @@ class AfterExecuteImageTracer:
         cv2.imwrite("screenshot.png", bgr)
         print("Bild gespeichert als screenshot.png")
 
-
-def get_prompts():
-    return
+def get_prompts(base):
+    return list(
+        map(
+            base.create_prompt,
+            ["Pick red", "Pick green", "Pick blue"],
+        )
+    )
 
 def calculate_reward(base, llm_completion, **kwargs):
-    object_color = kwargs["object_color"]
+    object_color = kwargs["color"]
 
-    with PyBulletContext(False):
-        base = Base()
-        rewarder = LiftObjectRewarder(
-            base.world_manager.query_objects("cube", [object_color])[0],
-        )
-        done = False
+    rewarder = LiftObjectRewarder(
+        base.world_manager.query_objects("cube", [object_color])[0],
+    )
+    done = False
 
-        def evaluate():
-            base.evaluate("Pick " + object_color)
-            done = True
+    def evaluate():
+        base.evaluate("Pick " + object_color)
+        done = True
 
-        thread = Thread(target=evaluate)
-        thread.start()
+    thread = Thread(target=evaluate)
+    thread.start()
 
-        while done is False:
-            base.update()
+    while done is False:
+        base.update()
 
-        return rewarder.reward
+    return rewarder.reward
