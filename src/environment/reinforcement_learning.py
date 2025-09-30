@@ -111,7 +111,11 @@ class AfterExecuteImageTracer:
         cv2.imwrite("screenshot.png", bgr)
         print("Bild gespeichert als screenshot.png")
 
-def calculate_reward(llm_completion, **kwargs):
+
+def get_prompts():
+    return
+
+def calculate_reward(base, llm_completion, **kwargs):
     object_color = kwargs["object_color"]
 
     with PyBulletContext(False):
