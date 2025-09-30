@@ -37,6 +37,7 @@ from pybullet import (
     addUserDebugLine,
     changeDynamics,
     getDynamicsInfo,
+    removeBody,
 )
 from pybullet_data import getDataPath
 from scipy.constants import g
@@ -52,7 +53,7 @@ from asyncio import get_running_loop, run
 from traceback import print_exc
 
 class Base:
-    def __init__(self, time_step = 240):
+    def __init__(self, objects = None, time_step = 240):
         self.__time_step = time_step
 
         setAdditionalSearchPath(getDataPath())
@@ -68,54 +69,32 @@ class Base:
             globalScaling=1
         )
 
+        self.__table_id = table_id
         self.__world_manager = WorldManager()
-
-        self.__world_manager.append(
-            WorldObject(
-                table_id,
-                "table",
-                [],
-            )
-        )
-
-        self.__red_id = loadURDF("cube.urdf", basePosition=[0, 0, 0.66], globalScaling=0.066)
-        changeVisualShape(self.__red_id, -1, rgbaColor=[1, 0, 0, 1.0])
-
-        self.__blue_id = loadURDF("cube.urdf", basePosition=[0, 0.5, 0.66], globalScaling=0.066)
-        changeVisualShape(self.__blue_id, -1, rgbaColor=[0, 0, 1, 1.0])
-
-        self.__green_id = loadURDF("cube.urdf", basePosition=[0, -0.5, 0.66], globalScaling=0.066)
-        changeVisualShape(self.__green_id, -1, rgbaColor=[0, 1, 0, 1.0])
-
-        self.__initial_positions = {}
-        self.__initial_orientations = {}
-        for id in [self.__red_id, self.__blue_id, self.__green_id]:
-            position, orientation = getBasePositionAndOrientation(id)
-            self.__initial_positions[id] = position
-            self.__initial_orientations[id] = orientation
-
-            for link in range(getNumJoints(id)):
-                changeDynamics(id, link, lateralFriction=50.0, friction_anchor=True)
-
-        self.__world_manager.append(
-            WorldObject(
-                self.__red_id,
-                "cube",
-                ["red"],
-            ),
-            WorldObject(
-                self.__blue_id,
-                "cube",
-                ["blue"],
-            ),
-            WorldObject(
-                self.__green_id,
-                "cube",
-                ["green"],
-            ),
-        )
+        self.__object_ids = []
+        
+        if objects is None:
+            objects = [
+                {
+                    "position": [0, 0, 0.66],
+                    "size": 0.07,
+                    "color": "red",
+                },
+                {
+                    "position": [0, 0.5, 0.66],
+                    "size": 0.07,
+                    "color": "blue",
+                },
+                {
+                    "position": [0, -0.5, 0.66],
+                    "size": 0.07,
+                    "color": "green",
+                },
+            ]
 
         self.__arm_controller = ArmController()
+        
+        self.reload_objects(objects)
 
         self.__workflow_manager = WorkflowManager()
         self.__workflow_manager.event_listeners.create('on_update')
@@ -124,9 +103,138 @@ class Base:
         self.__workflow_manager.functions.register(self.move_gripper_to)
         self.__workflow_manager.functions.register(self.reset_position)
 
+    def reload_objects(self, objects):
+        for object_id in self.__object_ids:
+            removeBody(object_id)
+
+        for object_id in [self.__arm_controller.gripper_id, self.__arm_controller.platform_id]:
+            removeBody(object_id)
+
+        self.__arm_controller = ArmController()
+            
+        self.__object_ids = []
+        self.__initial_positions = {}
+        self.__initial_orientations = {}
+        self.__world_manager.clear()
+        
+        self.__world_manager.append(WorldObject(self.__table_id, "table", []))
+        
+        colors = {
+            "red": [1, 0, 0, 1.0],
+            "blue": [0, 0, 1, 1.0],
+            "green": [0, 1, 0, 1.0],
+        }
+        
+        for object in objects:
+            id = loadURDF("cube.urdf", basePosition=object['position'], globalScaling=object['size'])
+            changeVisualShape(id, -1, rgbaColor=colors[object['color']])
+
+            for link in range(getNumJoints(id)):
+                changeDynamics(id, link, lateralFriction=50.0, friction_anchor=True)
+
+            self.__object_ids.append(id)
+            self.__world_manager.append(WorldObject(id, "cube", [object['color']]))
+
+            position, orientation = getBasePositionAndOrientation(id)
+            self.__initial_positions[id] = position
+            self.__initial_orientations[id] = orientation
+
+    def create_overview_image(self, height=240, width=320):
+        from pybullet import computeViewMatrix, computeProjectionMatrixFOV, getCameraImage, stepSimulation, ER_TINY_RENDERER
+        from numpy import reshape, array, uint8
+        
+        image = getCameraImage(
+            width,
+            height,
+            computeViewMatrix(
+                cameraEyePosition=[-1.5, -1.5, 1.5],
+                cameraTargetPosition=[0, 0, 0],
+                cameraUpVector=[0, 0, 1],
+            ),
+            computeProjectionMatrixFOV(
+                fov=60,
+                aspect=width / height,
+                nearVal=0.1,
+                farVal=100,
+            ),
+            renderer=ER_TINY_RENDERER,
+            shadow=0,
+        )
+        
+        rgb_array = array(image[2], dtype=uint8).reshape((height, width, 4))
+        rgb_array = rgb_array[:, :, :3]
+
+        return rgb_array
+        
+    def create_front_image(self, height=240, width=320):
+        from pybullet import computeViewMatrix, computeProjectionMatrixFOV, getCameraImage, stepSimulation, ER_TINY_RENDERER
+        from numpy import reshape, array, uint8
+        
+        image = getCameraImage(
+            width,
+            height,
+            computeViewMatrix(
+                cameraEyePosition=[-1.5, 0, 1.33],
+                cameraTargetPosition=[0, 0, 0.33],
+                cameraUpVector=[0, 0, 1],
+            ),
+            computeProjectionMatrixFOV(
+                fov=60,
+                aspect=width / height,
+                nearVal=0.1,
+                farVal=100,
+            ),
+            renderer=ER_TINY_RENDERER,
+            shadow=0,
+        )
+        
+        rgb_array = array(image[2], dtype=uint8).reshape((height, width, 4))
+        rgb_array = rgb_array[:, :, :3]
+
+        return rgb_array
+
+    def create_top_image(self, height=240, width=320):
+        from pybullet import computeViewMatrix, computeProjectionMatrixFOV, getCameraImage, stepSimulation, ER_TINY_RENDERER
+        from numpy import reshape, array, uint8
+
+        image = getCameraImage(
+            width,
+            height,
+            computeViewMatrix(
+                cameraEyePosition=[0, 0, 2],
+                cameraTargetPosition=[0, 0, 0],
+                cameraUpVector=[-1, 0, 0],
+            ),
+            computeProjectionMatrixFOV(
+                fov=60,
+                aspect=width / height,
+                nearVal=0.1,
+                farVal=100,
+            ),
+            renderer=ER_TINY_RENDERER,
+            shadow=0,
+        )
+
+        rgb_array = array(image[2], dtype=uint8).reshape((height, width, 4))
+        rgb_array = rgb_array[:, :, :3]
+
+        return rgb_array
+        
+    
+    def show_image(self, image, height=240, width=320):
+        import matplotlib.pyplot as plt 
+
+        plt.imshow(image)
+        plt.axis("off")
+        plt.show()
+
     @property
     def workflow_manager(self):
         return self.__workflow_manager
+
+    @property
+    def arm_controller(self):
+        return self.__arm_controller
 
     @property
     def world_manager(self):
@@ -183,15 +291,14 @@ Functions:
             print(e)
             print_exc()
 
-
     def update(self):
         run(self.__workflow_manager.event_listeners.on_update.trigger())
 
         self.__arm_controller.update(1 / self.__time_step)
         stepSimulation()
 
-        from time import sleep
-        sleep(1 / self.__time_step)
+        #from time import sleep
+        #sleep(1 / self.__time_step)
 
     async def open_gripper(self):
         loop = get_running_loop()
@@ -225,6 +332,8 @@ Functions:
         loop = get_running_loop()
         future = loop.create_future()
 
+        #print("move", position)
+
         def handle(*args, **kwargs):
             self.__arm_controller.move_gripper_to(
                 position,
@@ -249,5 +358,5 @@ Functions:
 
     def reset(self):
         self.__arm_controller.reset(execute_callbacks=False)
-        for id in [self.__red_id, self.__green_id, self.__blue_id]:
+        for id in self.__object_ids:
             resetBasePositionAndOrientation(id, self.__initial_positions[id], self.__initial_orientations[id])

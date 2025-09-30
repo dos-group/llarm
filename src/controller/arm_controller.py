@@ -169,6 +169,7 @@ class ArmController:
             "gripper/wsg50_one_motor_gripper_new_free_base.sdf"
         )[0]
         self.__state = State(ArmController.STATE_IDLE)
+        self.__states = []
 
         createConstraint(
             parentBodyUniqueId=self.__platform_id,
@@ -205,6 +206,10 @@ class ArmController:
     @property
     def platform_id(self):
         return self.__platform_id
+
+    @property
+    def states(self):
+        return self.__states
 
     @property
     def gripper_id(self):
@@ -560,7 +565,7 @@ class ArmController:
         if self.__state.data["current_tick"] % self.__state.data["ticking_divisor"] == 0:
             self.__state.data["ticking_handler"]()
 
-    def __transform_state(self, next_state, execute_callbacks=True):
+    def __transform_state(self, next_state, execute_callbacks=True):   
         previous_state = self.__state
         self.__state = next_state
 
@@ -568,6 +573,9 @@ class ArmController:
             (previous_state.then_callbacks.pop(0))(self)
 
             self.__state.then_callbacks = previous_state.then_callbacks + self.__state.then_callbacks
+
+        if previous_state.name != next_state.name:
+            self.__states.append(previous_state)
 
         return next_state
 
@@ -580,6 +588,18 @@ class ArmController:
         )
 
     def __get_endeffector_position(self):
+        return multiplyTransforms(
+            getLinkState(
+                self.__platform_id,
+                ArmController.END_EFFECTOR_INDEX,
+                computeForwardKinematics=True,
+            )[4],
+            getQuaternionFromEuler([0.0, 0, 0.0]),
+            ArmController.TCP_OFFSET,
+            [0.0, 0.0, 0.0, 1.0],
+        )[0]
+        
+    def get_endeffector_position(self):
         return multiplyTransforms(
             getLinkState(
                 self.__platform_id,

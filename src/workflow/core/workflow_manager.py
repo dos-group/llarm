@@ -42,10 +42,8 @@ class WorkflowManager:
         try:
             async with timeout(timeout_in_seconds):
                 await namespace["__workflow__"]()
-        except:
-            pass
-
-        await self.event_listeners.after_execute.trigger()
+        finally:
+            await self.event_listeners.after_execute.trigger()
 
         return context
 
@@ -93,8 +91,6 @@ class WorkflowManager:
         return callable
 
     async def __transform_source(self, source):
-        print(source)
-
         await self.event_listeners.before_execute_source_transformation.trigger(
             source=source,
         )
@@ -106,8 +102,6 @@ class WorkflowManager:
         )
 
         source = unparse(ast)
-
-        print(source)
 
         await self.event_listeners.after_execute_source_transformation.trigger(
             source=source,

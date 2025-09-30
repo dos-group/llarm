@@ -6,6 +6,9 @@ class WorldManager:
     def objects(self):
         return self.__objects
 
+    def clear(self):
+        self.__objects = []
+
     def append(self, *objects):
         for object in objects:
             self.__objects.append(object)
