@@ -5,6 +5,7 @@ from time import sleep
 from os import environ
 from math import log, sqrt, acos, exp
 from numpy import array
+from asyncio import run
 
 time_step = int(environ.get("TIME_STEP", "240"))
 
@@ -111,16 +112,31 @@ class AfterExecuteImageTracer:
         cv2.imwrite("screenshot.png", bgr)
         print("Bild gespeichert als screenshot.png")
 
+
+def formatting_prompts_func(example):
+    return [
+        {
+            "role": "system",
+            "content": "You are a Python 3 code generator."
+        },
+        {
+            "role": "user",
+            "content": example
+        }
+    ]
+
 def get_prompts(base):
     return list(
         map(
-            base.create_prompt,
-            ["Pick red", "Pick green", "Pick blue"],
+            lambda prompt: {"prompt": formatting_prompts_func(base.create_prompt(prompt)), "method_args": {"color": "red"}},
+            ["Pick red", "Pick red", "Pick red", "Pick red", "Pick red", "Pick red", "Pick red", "Pick red", "Pick red", "Pick red", "Pick green", "Pick blue"],
         )
     )
 
 def calculate_reward(base, llm_completion, **kwargs):
     object_color = kwargs["color"]
+    print("RL DATA: " + object_color)
+    print("RL COMPLETION: " + llm_completion)
 
     rewarder = LiftObjectRewarder(
         base.world_manager.query_objects("cube", [object_color])[0],
@@ -128,13 +144,18 @@ def calculate_reward(base, llm_completion, **kwargs):
     done = False
 
     def evaluate():
-        base.evaluate("Pick " + object_color)
-        done = True
-
+        try:
+            run(base.workflow_manager.execute(llm_completion))
+        except Exception as e:
+            print(e)            
+        finally:
+            done = True
+            
     thread = Thread(target=evaluate)
     thread.start()
 
     while done is False:
         base.update()
 
-    return rewarder.reward
+    reward = rewarder.reward["position_delta_reward"] + rewarder.reward["orientation_delta_reward"]
+    return reward
