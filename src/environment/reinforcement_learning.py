@@ -2,7 +2,6 @@ from .base import Base
 from threading import Thread
 from ..utility import PyBulletContext
 from time import sleep
-from .lift_object_rewarder import LiftObjectRewarder
 from os import environ
 from math import log, sqrt, acos, exp
 from numpy import array
@@ -116,7 +115,7 @@ class AfterExecuteImageTracer:
         print("Bild gespeichert als screenshot.png")
 
 
-def calculate_reward(llm_completion, kwargs**):
+def calculate_reward(llm_completion, **kwargs):
     with PyBulletContext(False):
         base = Base()
-        return rewarder.rewards)
+        return rewarder.rewards
