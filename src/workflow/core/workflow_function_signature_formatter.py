@@ -5,7 +5,7 @@ class WorkflowFunctionSignatureFormatter:
     """
     Formats the function signature of a given `WorkflowFunction` for display or analysis.
     """
-    def format_type(self, type):
+    def __format_type(self, type):
         if type is None:
             return "void"
 
@@ -26,7 +26,7 @@ class WorkflowFunctionSignatureFormatter:
 
         return str(type)
 
-    def format_default(self, specification, argument_type_key):
+    def __format_default(self, specification, argument_type_key):
         if specification.defaults is None:
             return ""
 
@@ -41,6 +41,12 @@ class WorkflowFunctionSignatureFormatter:
         return " = " + str(specification.defaults[index])
 
     def format(self, function):
+        """
+        Returns the documentation of the given function.
+
+        For instance, the Python 3 function "print_name(name: str)" is formatted
+        into "function print_name(name: str)"
+        """
         specification = getfullargspec(function.callable)
 
         arguments = ", ".join(
@@ -49,14 +55,14 @@ class WorkflowFunctionSignatureFormatter:
                     [
                         argument_type_key,
                         ": ",
-                        self.format_type(function.argument_types[argument_type_key]),
-                        self.format_default(specification, argument_type_key)
+                        self.__format_type(function.argument_types[argument_type_key]),
+                        self.__format_default(specification, argument_type_key)
                     ]
                 ),
                 function.argument_types,
             )
         )
 
-        return_type = self.format_type(function.return_type)
+        return_type = self.__format_type(function.return_type)
 
         return "function " + function.name + "(" + arguments + "): " + return_type

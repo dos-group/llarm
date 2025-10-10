@@ -45,10 +45,13 @@ from ..utility import any_lambda
 from typing import Tuple
 from os import environ
 from time import sleep
+from pybullet import computeViewMatrix, computeProjectionMatrixFOV, getCameraImage, stepSimulation, ER_TINY_RENDERER
+from numpy import reshape, array, uint8
 from ..controller import ArmController
 from ..utility import point_in_aabb, draw_object_box, every_distance_is_within_tolerance
 from ..world import WorldObject, WorldManager
 from ..workflow.core import WorkflowGenerator, WorkflowFunctionSignatureFormatter, WorkflowManager, WorkflowEventListener
+import matplotlib.pyplot as plt
 from ..workflow.utility import WorkflowExecutionTracer, WorkflowExecutionPrinter
 from asyncio import get_running_loop, run
 from traceback import print_exc
@@ -103,6 +106,11 @@ class Base:
         configureDebugVisualizer(COV_ENABLE_SINGLE_STEP_RENDERING, 0)
 
         plane_id = loadURDF("plane.urdf")
+
+        """
+        Loads the table model at the coordinate origin (0, 0, 0) and rotates it
+        so that the tabletop is aligned with the positive z-axis.
+        """
         table_id = loadURDF(
             "table/table.urdf",
             basePosition=[0.0, 0.0, 0.0],
@@ -116,6 +124,9 @@ class Base:
         self.__sleep = sleep
         
         if objects is None:
+            """
+            Loads the default set of objects onto the table within the simulation environment.
+            """
             objects = [
                 {
                     "position": [0, 0, 0.66],
@@ -181,95 +192,6 @@ class Base:
             self.__initial_positions[id] = position
             self.__initial_orientations[id] = orientation
 
-    def create_overview_image(self, height=240, width=320):
-        from pybullet import computeViewMatrix, computeProjectionMatrixFOV, getCameraImage, stepSimulation, ER_TINY_RENDERER
-        from numpy import reshape, array, uint8
-        
-        image = getCameraImage(
-            width,
-            height,
-            computeViewMatrix(
-                cameraEyePosition=[-1.5, -1.5, 1.5],
-                cameraTargetPosition=[0, 0, 0],
-                cameraUpVector=[0, 0, 1],
-            ),
-            computeProjectionMatrixFOV(
-                fov=60,
-                aspect=width / height,
-                nearVal=0.1,
-                farVal=100,
-            ),
-            renderer=ER_TINY_RENDERER,
-            shadow=0,
-        )
-        
-        rgb_array = array(image[2], dtype=uint8).reshape((height, width, 4))
-        rgb_array = rgb_array[:, :, :3]
-
-        return rgb_array
-        
-    def create_front_image(self, height=240, width=320):
-        from pybullet import computeViewMatrix, computeProjectionMatrixFOV, getCameraImage, stepSimulation, ER_TINY_RENDERER
-        from numpy import reshape, array, uint8
-        
-        image = getCameraImage(
-            width,
-            height,
-            computeViewMatrix(
-                cameraEyePosition=[-1.5, 0, 1.33],
-                cameraTargetPosition=[0, 0, 0.33],
-                cameraUpVector=[0, 0, 1],
-            ),
-            computeProjectionMatrixFOV(
-                fov=60,
-                aspect=width / height,
-                nearVal=0.1,
-                farVal=100,
-            ),
-            renderer=ER_TINY_RENDERER,
-            shadow=0,
-        )
-        
-        rgb_array = array(image[2], dtype=uint8).reshape((height, width, 4))
-        rgb_array = rgb_array[:, :, :3]
-
-        return rgb_array
-
-    def create_top_image(self, height=240, width=320):
-        from pybullet import computeViewMatrix, computeProjectionMatrixFOV, getCameraImage, stepSimulation, ER_TINY_RENDERER
-        from numpy import reshape, array, uint8
-
-        image = getCameraImage(
-            width,
-            height,
-            computeViewMatrix(
-                cameraEyePosition=[0, 0, 2],
-                cameraTargetPosition=[0, 0, 0],
-                cameraUpVector=[-1, 0, 0],
-            ),
-            computeProjectionMatrixFOV(
-                fov=60,
-                aspect=width / height,
-                nearVal=0.1,
-                farVal=100,
-            ),
-            renderer=ER_TINY_RENDERER,
-            shadow=0,
-        )
-
-        rgb_array = array(image[2], dtype=uint8).reshape((height, width, 4))
-        rgb_array = rgb_array[:, :, :3]
-
-        return rgb_array
-        
-    
-    def show_image(self, image, height=240, width=320):
-        import matplotlib.pyplot as plt 
-
-        plt.imshow(image)
-        plt.axis("off")
-        plt.show()
-
     @property
     def workflow_manager(self):
         return self.__workflow_manager
@@ -311,14 +233,14 @@ Functions:
         output from a Large Language Model (LLM), which is then executed by the
         `WorkflowManager`.
         """
-        content = self.create_prompt(message)
+        prompt = self.create_prompt(message)
 
-        print(content)
+        print(prompt)
 
         context = {}
 
         generator = WorkflowGenerator(
-            prompt=content,
+            prompt=prompt,
             model_name=environ.get("MODEL_NAME", ''),
             model_url = environ.get("MODEL_URL", None),
             model_key = environ.get("MODEL_KEY", None),
@@ -427,3 +349,105 @@ Functions:
         self.__arm_controller.reset(execute_callbacks=False)
         for id in self.__object_ids:
             resetBasePositionAndOrientation(id, self.__initial_positions[id], self.__initial_orientations[id])
+
+    def create_overview_image(self, height=240, width=320):
+        """
+        Creates an overview image and returns its RGB representation.
+
+        This function is currently unused but can be helpful for debugging or
+        extension purposes. The RGB representation can be displayed using
+        the `show_image()` method.
+        """
+        image = getCameraImage(
+            width,
+            height,
+            computeViewMatrix(
+                cameraEyePosition=[-1.5, -1.5, 1.5],
+                cameraTargetPosition=[0, 0, 0],
+                cameraUpVector=[0, 0, 1],
+            ),
+            computeProjectionMatrixFOV(
+                fov=60,
+                aspect=width / height,
+                nearVal=0.1,
+                farVal=100,
+            ),
+            renderer=ER_TINY_RENDERER,
+            shadow=0,
+        )
+
+        rgb_array = array(image[2], dtype=uint8).reshape((height, width, 4))
+        rgb_array = rgb_array[:, :, :3]
+
+        return rgb_array
+
+    def create_front_image(self, height=240, width=320):
+        """
+        Creates a front-facing image and returns its RGB representation.
+
+        This function is currently unused but can be helpful for debugging or
+        extension purposes. The RGB representation can be displayed using
+        the `show_image()` method.
+        """
+        image = getCameraImage(
+            width,
+            height,
+            computeViewMatrix(
+                cameraEyePosition=[-1.5, 0, 1.33],
+                cameraTargetPosition=[0, 0, 0.33],
+                cameraUpVector=[0, 0, 1],
+            ),
+            computeProjectionMatrixFOV(
+                fov=60,
+                aspect=width / height,
+                nearVal=0.1,
+                farVal=100,
+            ),
+            renderer=ER_TINY_RENDERER,
+            shadow=0,
+        )
+
+        rgb_array = array(image[2], dtype=uint8).reshape((height, width, 4))
+        rgb_array = rgb_array[:, :, :3]
+
+        return rgb_array
+
+    def create_top_image(self, height=240, width=320):
+        """
+        Creates a top-down image and returns its RGB representation.
+
+        This function is currently unused but can be helpful for debugging or
+        extension purposes. The RGB representation can be displayed using
+        the `show_image()` method.
+        """
+        image = getCameraImage(
+            width,
+            height,
+            computeViewMatrix(
+                cameraEyePosition=[0, 0, 2],
+                cameraTargetPosition=[0, 0, 0],
+                cameraUpVector=[-1, 0, 0],
+            ),
+            computeProjectionMatrixFOV(
+                fov=60,
+                aspect=width / height,
+                nearVal=0.1,
+                farVal=100,
+            ),
+            renderer=ER_TINY_RENDERER,
+            shadow=0,
+        )
+
+        rgb_array = array(image[2], dtype=uint8).reshape((height, width, 4))
+        rgb_array = rgb_array[:, :, :3]
+
+        return rgb_array
+
+
+    def show_image(self, image):
+        """
+        Displays the given image.
+        """
+        plt.imshow(image)
+        plt.axis("off")
+        plt.show()

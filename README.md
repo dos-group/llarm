@@ -6,7 +6,7 @@ This project investigates how Large Language Models (LLMs) can directly orchestr
 
 Modern robotics aims not only for reliably executing low-level controls, but also for interpreting and acting upon high-level goals expressed in human language. Bridging the semantic gap between natural language instructions and low-level motor control remains a key challenge in embodied AI. While much work has focused on either (a) mapping language to discrete action sequences or (b) learning continuous control policies in robotic domains, relatively fewer systems seek to directly leverage LLMs to orchestrate robot behaviors in closed loop with perception and feedback.
 
-## Key Components
+## Components
 ### World
 
 The `WorldManager` abstracts the environment in PyBullet and provides a unified interface for querying objects. It consists of instances of `WorldObject` for retrieving object related details such as the orientation or the position. It is used for providing environment related information to the prompt.
@@ -18,6 +18,16 @@ The `ArmController` abstracts required joint movements and implements related st
 ### Workflow
 
 The `WorkflowManager` and its related classes provide the infrastructure for workflow generation, transitions, and event handling. The `WorkflowGenerator` class is responsible for interfacing with an external LLM. NodeTransformer classes, such as `WorkflowAsynchronousNodeTransformer`, implement visitors for transforming Abstract Syntax Tree (AST) representations of LLM-generated workflows. While `WorkflowFunctions` offers a high-level interface to registered functions, `WorkflowEventListeners` provides signaling and hooking mechanisms that are useful for extension, tracing, and debugging.
+
+### Utility
+
+Contains utility functions used throughout the project.
+
+### Environments
+
+Defines the base environment for robotic gripper arm experiments and the 
+freestanding environment derived from it, enabling free-form experimentation 
+and robot control through a Large Language Model (LLM).
 
 ## Getting Started
 

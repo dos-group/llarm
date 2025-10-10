@@ -46,6 +46,10 @@ from ..utility import (
 from numpy import array, linspace, sqrt, linalg
 from scipy.interpolate import CubicSpline
 
+"""
+Provides helper functions for interpolating between start and end values
+using linear, smoothstep, or cubic spline interpolation to approximate target positions.
+"""
 def interpolate_linear(start, end, steps):
     return [start + (end - start) * t for t in linspace(0, 1, steps)]
 
@@ -99,7 +103,7 @@ class ArmController:
     STATE_UNGRAB = "ungrab"
 
     """
-    Velocities for each joint motor.
+    Fixed velocities for each joint motor.
     """
     JOINT_VELOCITIES = [
         2.5,
@@ -112,7 +116,9 @@ class ArmController:
     ]
 
     """
-    Fixed joint positions for the reset pose of the platform.
+    Fixed joint positions defining the reset pose of the platform, which
+    represents the robotic arm itself. The values are specific to this
+    gripper arm configuration.
     """
     RESET_PLATFORM_JOINT_POSITIONS = [
         -0.000000,
@@ -125,7 +131,8 @@ class ArmController:
     ]
 
     """
-    Fixed joint positions for the reset pose of the gripper.
+    Fixed joint positions defining the gripper’s reset pose. The gripper
+    is the tool mounted on the platform that performs object grasping.
     """
     RESET_GRIPPER_JOINT_POSITIONS = [
         0.000000,
@@ -137,6 +144,11 @@ class ArmController:
         -0.010055,
         0.000000,
     ]
+
+    """
+    Joint indices 4 and 6 correspond to the gripper joints of the loaded model.
+    """
+    GRIPPER_INDICES = [4, 6]
 
     """
     Index of the endeffector of the gripper.
@@ -255,8 +267,12 @@ class ArmController:
         """
         Transitions the controller into the close-gripper state, moving the gripper
         joints to their predefined closed pose for object grasping.
+
+        The `force` parameter specifies the force applied by the joint motors, and
+        `position` defines the vertical position of the grippers. Joint indices 4 and 6
+        correspond to the gripper joints.
         """
-        for index in [4, 6]:
+        for index in ArmController.GRIPPER_INDICES:
             setJointMotorControl2(
                 bodyIndex=self.__gripper_id,
                 jointIndex=index,
@@ -299,9 +315,12 @@ class ArmController:
     def open_gripper(self, force=250):
         """
         Transitions the controller into the open-gripper state, moving the gripper
-        joints to their predefined open pose.
+        joints to their predefined closed pose for object grasping.
+
+        The `force` parameter specifies the force applied by the joint motors, and
+        `position` defines the vertical position of the grippers.
         """
-        for index in [4, 6]:
+        for index in ArmController.GRIPPER_INDICES:
             setJointMotorControl2(
                 bodyIndex=self.__gripper_id,
                 jointIndex=index,
@@ -393,6 +412,10 @@ class ArmController:
         """
         positions = self.__get_gripper_positions()
 
+        """
+        Checks if the gripper joints are positioned near the open state (0, 0)
+        within an acceptable tolerance.
+        """
         condition = every_distance_is_within_tolerance(
             positions, [0, 0], tolerance=1e-3
         )
@@ -418,11 +441,20 @@ class ArmController:
         Checks if the conditions of the reset state are satisfied, allowing
         progression to the next state in the state machine.
         """
+
+        """
+        Checks if the platform’s joint motor positions are within tolerance of
+        the predefined reset joint positions.
+        """
         platform_condition = every_distance_is_within_tolerance(
             get_joint_positions(self.__platform_id),
             ArmController.RESET_PLATFORM_JOINT_POSITIONS,
         )
 
+        """
+        Checks if the gripper’s joint motor positions are within tolerance of
+        the predefined reset joint positions.
+        """
         gripper_condition = every_distance_is_within_tolerance(
             get_joint_positions(self.__gripper_id),
             ArmController.RESET_GRIPPER_JOINT_POSITIONS,
@@ -476,6 +508,10 @@ class ArmController:
                     maxVelocity=self.__state.data["velocity"],
                 )
 
+        """
+        Checks whether the current joint motor positions remain within an acceptable
+        tolerance of the target joint positions defined for the current state.
+        """
         platform_condition = every_distance_is_within_tolerance(
             get_joint_positions(self.__platform_id),
             self.__state.data["joint_poses"],
@@ -497,10 +533,10 @@ class ArmController:
 
     def __handle_ticking(self):
         """
-        Optionally, a state can define a ticking handler to directly manage
-        simulation-related routines at each step.
+        Optionally, a state can define a ticking handler to manage simulation-related
+        routines executed periodically during each step.
 
-        The tick rate is determined by the current tick and the ticking divisor.
+        The handler is called whenever `current_tick % ticking_divisor` equals zero.
         """
         if "current_tick" not in self.__state.data or self.__state.data["current_tick"] is None:
             return
@@ -524,11 +560,17 @@ class ArmController:
         previous_state = self.__state
         self.__state = next_state
 
+        """
+        Executes the callbacks of the state if they exist and the transformation
+        """
         if execute_callbacks and len(previous_state.then_callbacks) > 0:
             (previous_state.then_callbacks.pop(0))(self)
 
             self.__state.then_callbacks = previous_state.then_callbacks + self.__state.then_callbacks
 
+        """
+        Append the previous state to the history of states, which is useful for debugging.
+        """
         if previous_state.name != next_state.name:
             self.__states.append(previous_state)
 

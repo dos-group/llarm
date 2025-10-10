@@ -37,6 +37,11 @@ class MotionPlanner:
         )
 
     def then(self, callback):
+        """
+        Attaches a callback to the most recently defined state transition.
+        The callback is executed once the associated state has finished executing.
+        """
+
         if len(self.__transitions) == 0:
             return self
 
@@ -47,6 +52,10 @@ class MotionPlanner:
         return self
 
     def apply(self):
+        """
+        Applies the defined state transitions to the controller arm, executing
+        the resulting motion sequence.
+        """
         transitions = self.__transitions
         self.__transitions = []
 

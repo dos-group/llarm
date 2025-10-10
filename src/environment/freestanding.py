@@ -10,6 +10,10 @@ with PyBulletContext(True):
     base = Base(time_step=time_step)
 
     def handle_input():
+        """
+        Handles runtime commands entered in the terminal from which the
+        application was started, allowing interactive control or debugging.
+        """
         while True:
             message = input("> ")
 

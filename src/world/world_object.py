@@ -12,7 +12,6 @@ class WorldObject:
     categorization. Additionally, it provides functions to access the object's position,
     orientation, bounding box, and dimensions by querying the simulation environment.
     """
-
     def __init__(self, id, name, tags):
         self.__id = id
         self.__name = name
@@ -49,6 +48,9 @@ class WorldObject:
 
     @property
     def aabb(self):
+        """
+        Returns the bounding-box provided by PyBullet.
+        """
         return getAABB(self.__id)
 
     @property

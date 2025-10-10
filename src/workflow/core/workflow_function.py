@@ -6,12 +6,27 @@ class WorkflowFunction:
     and its signature for analysis or execution within the workflow system.
     """
     def __init__(self, callable, name= None, hidden=True, argument_types=None, return_type=None):
+        """
+        Represents the specification of a Python 3 function, providing detailed
+        information about its arguments and return types.
+        """
         self.__callable_specification = getfullargspec(callable)
+
+        """Python 3 function"""
         self.__callable = callable
+
+        """
+        Specifies the function name, which is either derived from the given callable
+        or explicitly defined by the user.
+        """
         self.__name = name or callable.__name__
+
+        """Indicates whether this function should be excluded from inclusion in the prompt."""
         self.__hidden = hidden
 
+        """Explicitly defined argument types."""
         self.__argument_types = argument_types
+
         if argument_types is None:
             context_filtered_argument_keys = [*self.__callable_specification.args]
 
@@ -65,6 +80,10 @@ class WorkflowFunction:
         return self.__return_type
 
     def stub(name, return_value = None):
+        """
+        Returns a stub function that, when called, logs or prints its name and
+        arguments for debugging or demonstration purposes.
+        """
         def wrapper(*args):
             print('Execute "{}" and arguments {}'.format(name, ', '.join(map(lambda argument: '"' + str(argument) + '"', args))))
 

@@ -45,8 +45,23 @@ class WorkflowGenerator:
 
     def generate(self, **kwargs):
         """
-        Generates an output and extracting the relevant parts by querying a Large Language Model (LLM)
-        with the provided input.
+        Generates an output and extracts the relevant parts by querying a
+        Large Language Model (LLM) with the provided input.
+
+        The prompt—containing the user’s intention, the world description, and the
+        available functions—is passed as input to the model. The output consists
+        of Python 3 code enclosed within Markdown-style code fences, such as
+        ```python```, ```python3```, or plain triple backticks (```).
+
+        The function extracts the enclosed code and returns it.
+
+        Example output from the LLM:
+            This is the code addressing the given intention:
+
+            python3```
+            def foo():
+                bar()
+            ```
         """
         options = {}
 
