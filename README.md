@@ -66,22 +66,3 @@ python3 -m "src.environment.freestanding"
 | reset | Reset the environment, including gripper and object positions and joint states |
 | exit  | Exit the application                                                           |
 | break | Breakpoint call to the python debugger                                         |
-
-### Reinforcement Learning Environment (TODO)
-
-The reinforcement learning environment is intended for adapting models using reinforcement learning. Its implementation is not yet complete.
-
-#### Environment Variables
-
-| Key               | Description                               | Default |
-|-------------------|-------------------------------------------|---------|
-| MODEL_NAME        | LLM model name                            | None    |
-| MODEL_TEMPERATURE | LLM model temperature                     | None    |
-| MODEL_URL         | URL to the chat completions endpoint      | None    |
-| MODEL_KEY         | API key for the chat completions endpoint | None    |
-
-#### Run
-
-``` shell
-python3 -m "src.environment.reinforcement_learning"
-```

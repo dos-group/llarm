@@ -50,7 +50,6 @@ def interpolate_linear(start, end, steps):
     return [start + (end - start) * t for t in linspace(0, 1, steps)]
 
 def interpolate_smoothstep(start, end, steps):
-    import numpy as np
     ts = linspace(0, 1, steps)
     smooth_ts = 3 * ts**2 - 2 * ts**3
     return [start + (end - start) * t for t in smooth_ts]
@@ -67,32 +66,6 @@ def interpolate_cubic_spline(start, end, steps):
     ]
 
     return path
-
-def pixel_to_camera_coords(u, v, z, fx, fy, cx, cy):
-    import numpy as np
-
-    X = (u - cx) * z / fx
-    Y = (v - cy) * z / fy
-    Z = z
-    return np.array([X, Y, Z])
-
-def camera_to_world(point_cam, cam_to_world):
-    import numpy as np
-
-    point_cam_h = np.append(point_cam, 1.0)
-
-    point_world_h = cam_to_world @ point_cam_h
-
-    return point_world_h[:3]
-
-def quat_mul(q1, q2):
-    x1,y1,z1,w1 = q1; x2,y2,z2,w2 = q2
-    return (
-        w1*x2 + x1*w2 + y1*z2 - z1*y2,
-        w1*y2 - x1*z2 + y1*w2 + z1*x2,
-        w1*z2 + x1*y2 - y1*x2 + z1*w2,
-        w1*w2 - x1*x2 - y1*y2 - z1*z2
-    )
 
 class ArmController:
     """
@@ -246,108 +219,6 @@ class ArmController:
                 },
             )
         )
-
-    def display_camera_image(self, vector, fov, aspect, nearVal, farVal):
-        import pybullet as p
-        import numpy as np
-
-        state = getLinkState(self.__platform_id, ArmController.END_EFFECTOR_INDEX),
-        position = state[0][0]
-        orientation = state[0][1]
-        rotation_matrix = np.array(p.getMatrixFromQuaternion(orientation)).reshape(3, 3)
-
-        rot_matrix = np.array(p.getMatrixFromQuaternion(orientation))
-
-        up_vector = np.dot(rotation_matrix, [0, 1, 0])
-        z_axis = [rot_matrix[2], rot_matrix[5], rot_matrix[8]]
-
-        scale = 1
-        position = [position[0] + z_axis[0] * vector,
-                    position[1] + z_axis[1] * vector,
-                    position[2] + z_axis[2] * vector]
-
-        end_pos = [position[0] + z_axis[0] * scale,
-                   position[1] + z_axis[1] * scale,
-                   position[2] + z_axis[2] * scale]
-
-        view_matrix = p.computeViewMatrix(position, end_pos, up_vector)
-
-        projection_matrix = p.computeProjectionMatrixFOV(
-            fov=fov,
-            aspect=aspect,
-            nearVal=nearVal,
-            farVal=farVal,
-        )
-
-        width, height = (768, 640)
-
-        img_arr = p.getCameraImage(
-            width=width,
-            height=height,
-            viewMatrix=view_matrix,
-            projectionMatrix=projection_matrix
-        )
-
-        import cv2
-
-        rgb_array = np.reshape(img_arr[2], (height, width, 4))
-        rgb_array = rgb_array[:, :, :3]
-        rgb_array = rgb_array.astype(np.uint8)
-        rgb_array = cv2.cvtColor(rgb_array, cv2.COLOR_RGB2BGR)
-
-        depth_buffer = img_arr[3]
-        depth = np.reshape(depth_buffer, (height, width))
-
-        depth_normalized = cv2.normalize(depth, None, 0, 255, cv2.NORM_MINMAX)
-        depth_uint8 = depth_normalized.astype(np.uint8)
-
-        depth_meters = farVal * nearVal / (farVal - (farVal - nearVal) * depth)
-
-        segmentation_mask = np.reshape(img_arr[4], (height, width))
-        body_ids = np.unique(segmentation_mask)
-        detections = []
-
-        for body_id in body_ids:
-            if body_id < 2:
-                continue
-
-            mask = (segmentation_mask == body_id)
-
-            if not np.any(mask):
-                continue
-
-            y_coords, x_coords = np.where(mask)
-            x_center = int(np.mean(x_coords))
-            y_center = int(np.mean(y_coords))
-
-            object_depths = depth_meters[mask]
-            valid_depths = object_depths[np.isfinite(object_depths) & (object_depths > 0)]
-
-            if len(valid_depths) == 0:
-                distance = None
-            else:
-                fov_rad = np.deg2rad(fov)
-                fx = fy = 0.5 * width / np.tan(fov_rad / 2)
-                cx = width / 2
-                cy = height / 2
-
-                distance = float(np.median(valid_depths))
-
-                z = depth_meters[y_center, x_center]
-
-                point_cam = pixel_to_camera_coords(
-                    x_center, y_center, z, fx, fy, cx, cy
-                )
-
-                pos, orn = p.getBasePositionAndOrientation(body_id)
-
-                view_matrix = np.array(view_matrix).reshape(4, 4)
-                cam_to_world = np.linalg.inv(view_matrix)
-                point_world = camera_to_world(point_cam, cam_to_world)
-                #print(f"{body_id} {point_world} real: {pos}")
-
-        #cv2.imwrite("./depth.jpg", depth_uint8)
-        #cv2.imwrite("./rgb.jpg", rgb_array)
 
     def reset(self, execute_callbacks=True):
         """
