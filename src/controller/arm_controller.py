@@ -97,6 +97,10 @@ class ArmController:
     STATE_MOVE_TO_OBJECT = "move_to_object"
     STATE_GRAB = "grab"
     STATE_UNGRAB = "ungrab"
+
+    """
+    Velocities for each joint motor.
+    """
     JOINT_VELOCITIES = [
         2.5,
         2.5,
@@ -107,6 +111,9 @@ class ArmController:
         2.5,
     ]
 
+    """
+    Fixed joint positions for the reset pose of the platform.
+    """
     RESET_PLATFORM_JOINT_POSITIONS = [
         -0.000000,
         -0.000000,
@@ -117,19 +124,9 @@ class ArmController:
         0.000001,
     ]
 
-    RESET_GRIPPER_BASE_POSITION = [
-        0.923103,
-        -0.200000,
-        1.250036,
-    ]
-
-    RESET_GRIPPER_BASE_ORIENTATION = [
-        -0.000000,
-        0.964531,
-        -0.000002,
-        -0.263970,
-    ]
-
+    """
+    Fixed joint positions for the reset pose of the gripper.
+    """
     RESET_GRIPPER_JOINT_POSITIONS = [
         0.000000,
         -0.011130,
@@ -141,8 +138,14 @@ class ArmController:
         0.000000,
     ]
 
+    """
+    Index of the endeffector of the gripper.
+    """
     END_EFFECTOR_INDEX = 6
 
+    """
+    Platform to gripper offset
+    """
     FRAME_POSITION = [0, 0, -0.025]
 
     def __init__(self):
