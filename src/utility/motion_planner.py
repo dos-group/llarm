@@ -1,6 +1,10 @@
 from copy import deepcopy
 
 class MotionPlanner:
+    """
+    The `MotionPlanner` is used to programmatically create complex sequences of actions.
+    """
+
     def __init__(self, controller, transitions = None):
         if transitions is None:
             transitions = []

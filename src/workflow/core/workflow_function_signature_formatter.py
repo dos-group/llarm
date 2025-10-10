@@ -2,6 +2,9 @@ from inspect import getfullargspec
 from typing import Collection,  get_origin, get_args
 
 class WorkflowFunctionSignatureFormatter:
+    """
+    Formats the function signature of a given `WorkflowFunction` for display or analysis.
+    """
     def format_type(self, type):
         if type is None:
             return "void"

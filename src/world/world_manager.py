@@ -1,4 +1,10 @@
 class WorldManager:
+    """
+    The `WorldManager` is a lightweight abstraction over the current environment.
+
+    It provides a simple querying interface and supports formatting the environment
+    for use within a Large Language Model (LLM) prompt.
+    """
     def __init__(self):
         self.__objects = []
 

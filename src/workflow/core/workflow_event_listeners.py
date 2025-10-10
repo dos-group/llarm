@@ -1,6 +1,9 @@
 from . import WorkflowEventListener
 
 class WorkflowEventListeners:
+    """
+    An aggregation class for available events within the workflow subsystem of the `WorkflowManager` class.
+    """
     def __init__(self):
         self.__before_execute = WorkflowEventListener()
         self.__after_execute = WorkflowEventListener()

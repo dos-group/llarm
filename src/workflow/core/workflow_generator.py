@@ -2,14 +2,18 @@ from openai import OpenAI
 from openai import AzureOpenAI
 
 class WorkflowGenerator:
+    """
+    The `WorkflowGenerator` transforms a prompt into executable Python 3 code,
+    abstracting over externally hosted Large Language Model (LLM) services.
+    """
     def __init__(
-            self,
-            prompt=None,
-            model_name=None,
-            model_url= None,
-            model_key= None,
-            model_temperature=None,
-            azure_client=False,
+        self,
+        prompt=None,
+        model_name=None,
+        model_url= None,
+        model_key= None,
+        model_temperature=None,
+        azure_client=False,
     ):
         if azure_client is True:
             options = {}
@@ -40,6 +44,10 @@ class WorkflowGenerator:
         self.__model_temperature = model_temperature
 
     def generate(self, **kwargs):
+        """
+        Generates an output and extracting the relevant parts by querying a Large Language Model (LLM)
+        with the provided input.
+        """
         options = {}
 
         if self.__model_temperature is not None:

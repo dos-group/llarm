@@ -1,6 +1,10 @@
 from copy import deepcopy
 
 class WorkflowExecutionTracer:
+    """
+    A utility class that traces functions scheduled for execution within a workflow.
+    """
+
     def __init__(self):
         self.__traces = []
 

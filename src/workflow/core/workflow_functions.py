@@ -1,6 +1,10 @@
 from . import WorkflowFunction
 
 class WorkflowFunctions:
+    """
+    Aggregates and manages the set of functions accessible to the `WorkflowManager`
+    during workflow execution.
+    """
     def __init__(self):
         self.__functions = {}
 

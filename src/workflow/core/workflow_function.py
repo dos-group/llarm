@@ -1,6 +1,10 @@
 from inspect import getfullargspec, iscoroutinefunction
 
 class WorkflowFunction:
+    """
+    Encapsulates a workflow function, allowing inspection of the underlying callable
+    and its signature for analysis or execution within the workflow system.
+    """
     def __init__(self, callable, name= None, hidden=True, argument_types=None, return_type=None):
         self.__callable_specification = getfullargspec(callable)
         self.__callable = callable

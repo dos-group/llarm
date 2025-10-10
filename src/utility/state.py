@@ -1,4 +1,11 @@
 class State:
+    """
+    Representation of a state in a state machine.
+
+    A state has a name, associated data, which is important for executing the state inside state machine,
+    and callbacks, which are executed after the state has been executed successfully.
+    """
+
     def __init__(
         self,
         name,

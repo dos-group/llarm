@@ -3,6 +3,12 @@ from textwrap import indent
 from inspect import iscoroutinefunction
 
 class WorkflowAsynchronousNodeTransformer(NodeTransformer):
+    """
+    A `NodeTransformer` that converts synchronous code into asynchronous code.
+
+    It transforms function definitions into asynchronous function definitions,
+    and synchronous function calls into asynchronous function calls.
+    """
     def __init__(self, asynchronous_function_names = None):
         if asynchronous_function_names is None:
             asynchronous_function_names = set()

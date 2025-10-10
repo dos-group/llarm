@@ -1,6 +1,9 @@
 from inspect import iscoroutinefunction
 
 class WorkflowEventListener:
+    """
+    Represents a single event listener within the workflow subsystem.
+    """
     def __init__(self, listeners = None):
         if listeners is None:
             listeners = []

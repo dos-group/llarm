@@ -6,7 +6,7 @@ This project investigates how Large Language Models (LLMs) can directly orchestr
 
 Modern robotics aims not only for reliably executing low-level controls, but also for interpreting and acting upon high-level goals expressed in human language. Bridging the semantic gap between natural language instructions and low-level motor control remains a key challenge in embodied AI. While much work has focused on either (a) mapping language to discrete action sequences or (b) learning continuous control policies in robotic domains, relatively fewer systems seek to directly leverage LLMs to orchestrate robot behaviors in closed loop with perception and feedback.
 
-## Components
+## Key Components
 ### World
 
 The `WorldManager` abstracts the environment in PyBullet and provides a unified interface for querying objects. It consists of instances of `WorldObject` for retrieving object related details such as the orientation or the position. It is used for providing environment related information to the prompt.

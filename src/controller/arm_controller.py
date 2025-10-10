@@ -79,17 +79,13 @@ def pixel_to_camera_coords(u, v, z, fx, fy, cx, cy):
 def camera_to_world(point_cam, cam_to_world):
     import numpy as np
 
-    # Punkt homogen erweitern: [X, Y, Z, 1]
     point_cam_h = np.append(point_cam, 1.0)
 
-    # Matrixmultiplikation
     point_world_h = cam_to_world @ point_cam_h
 
-    # Ergebnis (x, y, z)
     return point_world_h[:3]
 
 def quat_mul(q1, q2):
-    # (x,y,z,w) Konvention wie in PyBullet
     x1,y1,z1,w1 = q1; x2,y2,z2,w2 = q2
     return (
         w1*x2 + x1*w2 + y1*z2 - z1*y2,
@@ -99,10 +95,32 @@ def quat_mul(q1, q2):
     )
 
 class ArmController:
+    """
+    Low-level controller for a robotic gripper arm.
+
+    The `ArmController` encapsulates simulation-related routines for manipulating joint positions.
+    It provides a high-level interface, such as `close_gripper()`, `open_gripper()`, and
+    `move_gripper_to()`, which handle the necessary control of joint motors, joint position
+    transformations, and state machine transitions.
+
+    The state machine coordinates a sequence of actions, such as lifting an object, which requires
+    moving the gripper to a position, closing the gripper, and moving it to an alternative position.
+    Each high-level method sets the joint motors of the robotic gripper arm to target positions, which
+    resembles the particular action, mimicking the low-level interface of real-world robotic systems.
+
+    However, these target joint positions are not reached instantly. They are achieved gradually
+    as the simulation progresses via the `stepSimulation()` function of PyBullet. Therefore, it is
+    necessary to frequently check whether the target joint positions have been reached to allow
+    the state machine to transition to the next state.
+
+    This check is performed by the `update()` method, which must be called regularly within the
+    simulation loop. Depending on the current state, it verifies whether the joint motor positions
+    have reached their targets and advances the state machine accordingly.
+    """
+
     STATE_IDLE = "idle"
     STATE_SLEEP = "sleep"
     STATE_RESET = "reset"
-    STATE_MOVE_TO_POSITION = "move_to_position"
     STATE_MOVE_TO_OBJECT = "move_to_object"
     STATE_GRAB = "grab"
     STATE_UNGRAB = "ungrab"
@@ -332,6 +350,10 @@ class ArmController:
         #cv2.imwrite("./rgb.jpg", rgb_array)
 
     def reset(self, execute_callbacks=True):
+        """
+        Transitions the controller into the reset state, positioning all joints
+        into their predefined reset pose.
+        """
         for index in range(getNumJoints(self.__platform_id)):
             setJointMotorControl2(
                 self.__platform_id,
@@ -356,6 +378,10 @@ class ArmController:
         )
 
     def close_gripper(self, force=250, position=0.05):
+        """
+        Transitions the controller into the close-gripper state, moving the gripper
+        joints to their predefined closed pose for object grasping.
+        """
         for index in [4, 6]:
             setJointMotorControl2(
                 bodyIndex=self.__gripper_id,
@@ -376,6 +402,10 @@ class ArmController:
         )
 
     def idle(self, execute_callbacks=True):
+        """
+        Transitions the controller into the idle state, halting the operation of
+        all joint motors immediately.
+        """
         joint_positions = get_joint_positions(self.__platform_id)
 
         for index in range(getNumJoints(self.__platform_id)):
@@ -393,6 +423,10 @@ class ArmController:
         )
 
     def open_gripper(self, force=250):
+        """
+        Transitions the controller into the open-gripper state, moving the gripper
+        joints to their predefined open pose.
+        """
         for index in [4, 6]:
             setJointMotorControl2(
                 bodyIndex=self.__gripper_id,
@@ -413,6 +447,13 @@ class ArmController:
             ticking_handler=None,
             ticking_divisor=None,
     ):
+        """
+        Transitions the controller into the move-to-object state, positioning the
+        gripper joints at the specified coordinates.
+
+        The motion supports multiple interpolation modes, including linear, smoothstep,
+        and cubic spline interpolation for experimentation and fine control.
+        """
         if interpolation_steps is None:
             interpolation_steps = 0
 
@@ -446,12 +487,20 @@ class ArmController:
         )
 
     def update(self, delta):
+        """
+        Updates the current state of the controller, progressing state transitions
+        as needed.
+        """
         getattr(self, "_ArmController__update_" + self.__state.name + "_state")(delta)
 
     def __update_idle_state(self, delta):
         self.__transform_state(State(ArmController.STATE_IDLE))
 
     def __update_grab_state(self, delta):
+        """
+        Checks if the conditions of the grab state are satisfied, allowing
+        progression to the next state in the state machine.
+        """
         positions = self.__get_gripper_positions()
 
         condition = every_distance_is_within_tolerance(
@@ -464,6 +513,10 @@ class ArmController:
         self.__transform_state(State(ArmController.STATE_IDLE))
 
     def __update_ungrab_state(self, delta):
+        """
+        Checks if the conditions of the ungrab state are satisfied, allowing
+        progression to the next state in the state machine.
+        """
         positions = self.__get_gripper_positions()
 
         condition = every_distance_is_within_tolerance(
@@ -475,6 +528,10 @@ class ArmController:
         self.__transform_state(State(ArmController.STATE_IDLE))
 
     def __update_sleep_state(self, delta):
+        """
+        Checks if the conditions of the sleep state are satisfied, allowing
+        progression to the next state in the state machine.
+        """
         self.__state.data["elapsed_seconds"] += delta
 
         if self.__state.data["elapsed_seconds"] < self.__state_data["seconds"]:
@@ -483,6 +540,10 @@ class ArmController:
         self.__transform_state(ArmController.STATE_IDLE)
 
     def __update_reset_state(self, delta):
+        """
+        Checks if the conditions of the reset state are satisfied, allowing
+        progression to the next state in the state machine.
+        """
         platform_condition = every_distance_is_within_tolerance(
             get_joint_positions(self.__platform_id),
             ArmController.RESET_PLATFORM_JOINT_POSITIONS,
@@ -501,6 +562,16 @@ class ArmController:
     TCP_OFFSET = [0.0, 0.0, 0.25]
 
     def __update_move_to_object_state(self, delta):
+        """
+        Checks if the conditions of the move-to-object state are satisfied, allowing
+        progression to the next state in the state machine.
+
+        Since this state involves trajectory computation, each `step` in the sequence
+        represents a coordinate that the gripper arm must move to. The joint poses
+        are calculated using inverse kinematics. Upon reaching the target position
+        of a step, the next step is taken into account. Once the final step is reached,
+        the state transitions to the next state in the state machine.
+        """
         if "current_step" not in self.__state.data or self.__state.data["current_step"] is None:
             self.__state.data["current_step"] = 0
 
@@ -551,6 +622,12 @@ class ArmController:
         self.__transform_state(State(ArmController.STATE_IDLE))
 
     def __handle_ticking(self):
+        """
+        Optionally, a state can define a ticking handler to directly manage
+        simulation-related routines at each step.
+
+        The tick rate is determined by the current tick and the ticking divisor.
+        """
         if "current_tick" not in self.__state.data or self.__state.data["current_tick"] is None:
             return
 
@@ -566,6 +643,10 @@ class ArmController:
             self.__state.data["ticking_handler"]()
 
     def __transform_state(self, next_state, execute_callbacks=True):   
+        """
+        Transitions the controller to `next_state`, executing any associated
+        `then_callbacks` if they exist.
+        """
         previous_state = self.__state
         self.__state = next_state
 

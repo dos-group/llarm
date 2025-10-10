@@ -5,6 +5,14 @@ from pybullet import (
 )
 
 class WorldObject:
+    """
+    Represents a single object within the simulation environment.
+
+    Each object has a unique ID assigned by PyBullet, a name, and a set of tags used for
+    categorization. Additionally, it provides functions to access the object's position,
+    orientation, bounding box, and dimensions by querying the simulation environment.
+    """
+
     def __init__(self, id, name, tags):
         self.__id = id
         self.__name = name
